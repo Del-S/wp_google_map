@@ -1,4 +1,6 @@
 <?php
+// Todo (upload file tiles - probably directory gim_tiles to uploads)
+
 class GIM_Settings {
     var $gim_options;
     var $gim_settings_map;
@@ -35,6 +37,13 @@ class GIM_Settings {
 	}
     
     function load_admin_js() {
+        // Load upload an thickbox script
+        wp_enqueue_script('media-upload');
+        wp_enqueue_script('thickbox');
+
+        // Load thickbox CSS
+        wp_enqueue_style('thickbox');
+        
 		wp_enqueue_script( 'gim-admin', GIM_PLUGIN_URI . '/js/admin.js', array( 'jquery' ), GIM_PLUGIN_VERSION, true );
 		//wp_enqueue_script( 'jquery-ui-sortable', array( 'jquery' ), $this->plugin_version, true );
 
@@ -63,11 +72,11 @@ class GIM_Settings {
     
     public static function get_marker_map() {
         $marker_map = array();
-        $marker_map['new_name'] = 'input';
-        $marker_map['new_description'] = 'input';
-        $marker_map['new_link'] = 'input';
-        $marker_map['new_long'] = 'input';
-        $marker_map['new_lat'] = 'input';
+        $marker_map['name'] = 'input';
+        $marker_map['description'] = 'input';
+        $marker_map['link'] = 'input';
+        $marker_map['long'] = 'input';
+        $marker_map['lat'] = 'input';
         return $marker_map;
     }
     
@@ -119,16 +128,15 @@ class GIM_Settings {
             }
         }
         
-        $this->update_option($options_temp);
+        $this->update_option($options_temp, true);
         return($message); // Todo message
     }
     
-    function add_marker( $options ) {
+    function add_marker( $new_options ) {
         $gim_marker_map = $this->gim_marker_map;
-        $options = $this->options;
-        // todo fix max of ids in array
-        if( ($options["markers"] != null) && (!empty($options["markers"])) ) {
-            $id_keys = array_keys($options["markers"]);
+        $curr_options = $this->gim_options;
+        if(!empty($curr_options["markers"])) {
+            $id_keys = array_keys($curr_options["markers"]);
             $m_id = max($id_keys) + 1;
         } else { 
             $m_id = 0; 
@@ -136,48 +144,54 @@ class GIM_Settings {
 
         $message = '';
         if ( !is_array( $options ) ) {
-			$processed_array = str_replace( array( '%5B', '%5D' ), array( '[', ']' ), $options );
+			$processed_array = str_replace( array( '%5B', '%5D' ), array( '[', ']' ), $new_options );
 			parse_str( $processed_array, $output );
 		} else {
-			$output = $options;
+			$output = $new_options;
 		}
         
         if ( isset( $gim_marker_map ) ) {
 			foreach ( $gim_marker_map as $name => $type ) {
-                $name = str_replace("new_","",$name);
+                $array_name = "new_".$name;
                 switch( $type ) {
                     case 'input':
-                        $options_temp["markers"][$m_id][ $name ] = isset( $output[ $name ] )
-                                    ? sanitize_text_field( $output[ $name ] )
+                        $options_temp["markers"][$m_id][ $name ] = isset( $output[ $array_name ] )
+                                    ? sanitize_text_field( $output[ $array_name ] )
                                     : '';
-                    break;
-
-                    case 'checkbox':
-                        $options_temp["markers"][$m_id][ $name ] = $output[ $name ] == "on" || $output[ $name ] == true ? true : false;
                     break;
                 }
             }
-        }
-        
-        $this->update_option($options_temp);
+        }        
+        $options_temp["markers"] = array_merge($curr_options["markers"], $options_temp["markers"]);
+    
+        $this->update_option($options_temp, true);
         $message = ""; // todo
         return($message);
     }
     
     function remove_marker( $id ) {
-        $options = $this->options;
+        $options = $this->gim_options;
         $message = '';
         
-        if( ($options["markers"] != null) && (!empty($options["markers"])) ) {
-            // todo remove from array by marker id
+        if( (!empty($options["markers"])) && ( (!empty($id)) || $id == 0 ) ) {
+            unset($options["markers"][$id]);
+            $this->update_option($options, false);
+            
+            $message = "removed " . $id; // todo
+            return($message);
         } else { 
-            // Todo error message
+            $message = "err"; // todo
+            return($message);
         }
     }
     
-    function update_option( $update_array ) {
+    function update_option( $update_array, $merge ) {
 		$gim_options = $this->gim_options;
-		$updated_options = array_merge( $gim_options, $update_array );
+        if($merge) {
+            $updated_options = array_merge( $gim_options, $update_array );
+        } else {
+            $updated_options = $update_array;
+        }
 		update_option( 'gim_options', $updated_options );
 	}
     
@@ -201,10 +215,6 @@ class GIM_Settings {
                         <label for="image_enable">'. __('Use Image in map','GIM') .'</label>
                         <input type="checkbox" name="image_enable" '. $map_image_enabled .'  />
                     </div>
-                    <div class="map_image_link hidden">
-                        <label for="map_image">'. __('Map image','GIM') .'</label>
-                        <input type="text" name="image_link" value="'. $map_image_link .'"  />
-                    </div>
                     <div class="map_town_location hidden">
                         <label for="map_location">'. __('Location in map','GIM') .'</label>
                         <input type="text" name="town_location" value="'. $map_town_location .'"  />
@@ -219,6 +229,11 @@ class GIM_Settings {
                         <input type="checkbox" name="markers_link_only" '. $map_markers_link_only .'  />
                     </div>
                 </div>
+                <div class="image_link">
+                    <img src="'. $map_image_link .'" class="image" alt="Image Map" title="Image Map" width="400" height="300"/>
+                    <input type="hidden" class="hidden" name="image_link" value="'. $map_image_link .'"  />
+                    <button name="upload_image" class="button">'.__('Upload Image','GIM').'</button>
+                </div>
                 <div class="map_markers">
                 <table class="markers_table wp-list-table widefat">
                     <thead>
@@ -229,13 +244,13 @@ class GIM_Settings {
                         <th>'. __('Link','GIM') .'</th>
                         <th>'. __('Longtitude','GIM') .'</th>
                         <th>'. __('Latitude','GIM') .'</th>
+                        <th>'. __('Actions','GIM') .'</th>
                     </tr>
                     </thead>
                     <tbody>';
         
                     $markers = $options['markers'] ? $options['markers'] : array();
                     $alt_counter = 0;
-        print_r($markers);
                     foreach($markers as $id => $marker) {
                         $alt = "";
                         if(!(bool)($alt_counter & 1)) { $alt = 'alternate'; }
@@ -246,7 +261,7 @@ class GIM_Settings {
                                 <td><input type="text" name="marker_'.$id.'_link" value="'. $marker['link'] .'" /></td>
                                 <td><input type="text" name="marker_'.$id.'_long" value="'. $marker['long'] .'" /></td>
                                 <td><input type="text" name="marker_'.$id.'_lat" value="'. $marker['lat'] .'" /></td>
-                                <td><button name="remove" value="'.$id.'">'.__('Remove','GIM').'</button></td>
+                                <td><button name="remove" class="button" value="'.$id.'">'.__('Remove','GIM').'</button></td>
                               </tr>';
                         $alt_counter++;
                     }        
@@ -255,10 +270,10 @@ class GIM_Settings {
                     <tr class="new">
                         <th>'. __('Add marker','GIM') .'</th>
                         <th><input type="text" name="new_name"/></th>
-                        <th><input type="text" name="new_description" value="'. $marker['description'] .'" /></th>
-                        <th><input type="text" name="new_link" value="'. $marker['link'] .'" /></th>
-                        <th><input type="text" name="new_long" value="'. $marker['long'] .'" /></th>
-                        <th><input type="text" name="new_lat" value="'. $marker['lat'] .'" /></th>
+                        <th><input type="text" name="new_description" value="" /></th>
+                        <th><input type="text" name="new_link" value="" /></th>
+                        <th><input type="text" name="new_long" value="" /></th>
+                        <th><input type="text" name="new_lat" value="" /></th>
                         <th><button name="save_new_marker" class="button">'. __('Add','GIM') .' </button></th>
                     </tr>
                     </tfoot>
