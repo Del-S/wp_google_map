@@ -284,6 +284,8 @@ class GIM_Settings {
             </form>
         </div>';
         
+        do_shortcode("google-image-map");
+        
         echo $page;
     } 
 }

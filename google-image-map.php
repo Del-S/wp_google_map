@@ -36,10 +36,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'GIM_PLUGIN_DIR', trailingslashit( dirname(__FILE__) ) );
 define( 'GIM_PLUGIN_URI', plugins_url('', __FILE__) );
 define( 'GIM_PLUGIN_VERSION', 0.1 );
+define( 'GIM_UPLOADS_URI', content_url('uploads') . '/google-map-tiles' );
 
 class Google_Image_Map {
     var $menu_page;
     var $settings;
+    var $shortcode;
     private static $_this;
 
 	function __construct() {
@@ -53,7 +55,9 @@ class Google_Image_Map {
 		self::$_this = $this;
         
         require_once( GIM_PLUGIN_DIR . 'includes/settings.php' );
+        require_once( GIM_PLUGIN_DIR . 'includes/shortcode.php' );
         $this->settings = new GIM_Settings();
+        $this->shortcode = new GIM_Shortcode();
     
         add_action( 'admin_init', array( $this, 'admin_init' ) );
         
@@ -61,6 +65,7 @@ class Google_Image_Map {
         
         register_activation_hook( __FILE__, array( $this, 'activate_plugin' ) );
     }
+    
     
     /**
 	 * Returns an instance of the object
