@@ -22,13 +22,6 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */  
 
-// Time
-// 30 min create plugin
-// 1 h admin
-// 30 min admin)
-// 45 min saving data via ajax
-
-
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly
 }
@@ -37,6 +30,9 @@ define( 'GIM_PLUGIN_DIR', trailingslashit( dirname(__FILE__) ) );
 define( 'GIM_PLUGIN_URI', plugins_url('', __FILE__) );
 define( 'GIM_PLUGIN_VERSION', 0.1 );
 define( 'GIM_UPLOADS_URI', content_url('uploads') . '/google-map-tiles' );
+
+define( 'GIM_IMAGE_WIDTH', 15 );
+define( 'GIM_IMAGE_HEIGHT', 15 );
 
 class Google_Image_Map {
     var $menu_page;
@@ -77,6 +73,7 @@ class Google_Image_Map {
 	}
     
     function admin_init() {
+        add_image_size( 'google-map-icon', GIM_IMAGE_WIDTH, GIM_IMAGE_HEIGHT, true ); //mobile
     }
     
     /**
