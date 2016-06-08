@@ -1,5 +1,4 @@
 <?php
-
 class GIM_Shortcode {
     var $gim_options;
 

@@ -1,10 +1,31 @@
 (function($){
-	$( document ).ready( function() {
+	$( document ).ready( function() {      
+        /*
+         * Google map tiles upload (zip only)
+         */
+        $('#mapzip').change(function() {
+            if($(this).val().trim()) {
+                $('#submit_upload_map_tiles').prop( "disabled", false );
+            } else {
+                $('#submit_upload_map_tiles').prop( "disabled", true );
+            }
+        });
+        
+        $('#submit_upload_map_tiles').click(function(e) {
+            e.preventDefault();
+            $(this).next('.error').remove();
+            var fileExtension = ['zip'];
+            if ($.inArray($('#mapzip').val().split('.').pop().toLowerCase(), fileExtension) == -1) {
+                $(this).parent().append('<label for="mapzip" class="error">Err</label>'); // localize this
+            } else {
+                
+            }
+        });
         
         /*
          * Display proper inputs by checkboxes
          */
-        $(".map_image_enable input[name=image_enable]").click(function() {
+        $('.map_image_enable input[name=image_enable]').click(function() {
             show_map_input(this);
         });
         
@@ -98,7 +119,7 @@
             });
             return false;
         }
-        $(".markers_table button[name=update]").bind("click", update_marker); // Bind click event to update marker
+        $('.markers_table button[name=update]').bind("click", update_marker); // Bind click event to update marker
         
         /*
          * Remove marker
@@ -121,7 +142,7 @@
             });
             return false;
         }
-        $(".markers_table button[name=remove]").bind("click", remove_marker); // Bind click event to remove marker
+        $('.markers_table button[name=remove]').bind("click", remove_marker); // Bind click event to remove marker
         
         /*
          * Image file upload

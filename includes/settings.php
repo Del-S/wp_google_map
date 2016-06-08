@@ -1,4 +1,7 @@
 <?php
+// TODO: complete map tiles upload
+// - Marker pick for each map tiles
+// - Display map tiles names (in upload dir)
 class GIM_Settings {
     var $gim_options;
     var $gim_settings_map;
@@ -26,7 +29,7 @@ class GIM_Settings {
     function admin_menu() {
 		$menu_page = add_submenu_page( 'options-general.php', __( 'Google Image Map', 'GIM' ), __( 'Google Image Map', 'GIM' ), 'manage_options', 'gim_options', array( $this, 'options_page' ) );
 		add_action( "admin_print_scripts-{$menu_page}", array( $this, 'load_admin_js' ) );
-		//add_action( 'admin_enqueue_scripts', array( $this, 'load_admin_css' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'load_admin_css' ) );
 	}
     
     function add_settings_link( $links ) {
@@ -39,17 +42,19 @@ class GIM_Settings {
         // Load upload an thickbox script
         wp_enqueue_script('media-upload');
         wp_enqueue_script('thickbox');
-
-        // Load thickbox CSS
-        wp_enqueue_style('thickbox');
         
 		wp_enqueue_script( 'gim-admin', GIM_PLUGIN_URI . '/js/admin.js', array( 'jquery' ), GIM_PLUGIN_VERSION, true );
-		//wp_enqueue_script( 'jquery-ui-sortable', array( 'jquery' ), $this->plugin_version, true );
+		//wp_enqueue_script( 'jquery-ui-sortable', array( 'jquery' ), GIM_PLUGIN_VERSION, true );
 
 		wp_localize_script( 'gim-admin', 'gimSettings', array(
 			'gim_nonce' => wp_create_nonce( 'gim_nonce' ),
-			'ajaxurl'       => admin_url( 'admin-ajax.php', $this->protocol ),
+			'ajaxurl'   => admin_url( 'admin-ajax.php', $this->protocol ),
 		) );
+	}
+    
+    function load_admin_css() {
+        // Load thickbox CSS
+        wp_enqueue_style('thickbox');
 	}
     
     /* 
@@ -279,8 +284,6 @@ class GIM_Settings {
         } else {
             $updated_options = $update_array;
         }
-        //AIzaSyAgY2rfnVxBbeYWik3doVmXKOykBClliCw
-        //$updated_options = array();
 		update_option( 'gim_options', $updated_options );
 	}
     
@@ -304,7 +307,17 @@ class GIM_Settings {
         
         $page = '<div id="gim_wrapper">
             <h2>Google Image Map settings</h2>
-            <form action="" method="POST" id="gim_options">
+            
+            <div class="image_link" style="float: right">
+                <form method="post" enctype="multipart/form-data" id="upload_map_tiles" class="wp-upload-form" action="#">
+                    <input type="file" accept="application/zip" id="mapzip" name="mapzip">
+                    <button id="submit_upload_map_tiles" class="button" disabled="">'. __('Upload map tiles','GIM') .'</button>	
+                </form>
+                <img src="'. $map_image_link .'" class="image" alt="Image Map" title="Image Map" width="400" height="300"/>
+                <input type="hidden" class="hidden" name="image_link" value="'. $map_image_link .'"  />
+            </div>
+            
+            <form method="post" action="#" id="gim_options">
                 <div class="map_settings">
                     <div class="map_google_key">
                         <label for="google_key">'. __('Google API key','GIM') .'</label>
@@ -330,11 +343,6 @@ class GIM_Settings {
                         <label for="markers_onclick_redirect">'. __('Redirect on marker click','GIM') .'</label>
                         <input type="checkbox" name="markers_onclick_redirect" '. $map_markers_onclick_redirect .'  />
                     </div>
-                </div>
-                <div class="image_link">
-                    <img src="'. $map_image_link .'" class="image" alt="Image Map" title="Image Map" width="400" height="300"/>
-                    <input type="hidden" class="hidden" name="image_link" value="'. $map_image_link .'"  />
-                    <button name="upload_image" class="button">'.__('Upload Image','GIM').'</button>
                 </div>
                 <div class="map_markers">
                 <table class="markers_table wp-list-table widefat">

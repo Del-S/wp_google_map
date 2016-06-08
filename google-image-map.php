@@ -73,7 +73,7 @@ class Google_Image_Map {
 	}
     
     function admin_init() {
-        add_image_size( 'google-map-icon', GIM_IMAGE_WIDTH, GIM_IMAGE_HEIGHT, true ); //mobile
+        add_image_size( 'google-map-icon', GIM_IMAGE_WIDTH, GIM_IMAGE_HEIGHT, true );
     }
     
     /**
