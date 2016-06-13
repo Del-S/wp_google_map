@@ -1,7 +1,8 @@
 <?php
 class GIM_Shortcode {
     var $gim_options;
-
+    var $gim_map_dirs;
+    
     function __construct() {
         // Don't allow more than one instance of the class
 		if ( isset( self::$_this ) ) {
@@ -11,12 +12,12 @@ class GIM_Shortcode {
 		}
 		     
         $this->gim_options = $this->get_options_array();
+        foreach(glob(GIM_UPLOADS_DIR . '/*', GLOB_ONLYDIR) as $dir) {
+            $dirname[] = basename($dir);
+        }
+        $this->gim_map_dirs = $dirname;
         
         add_shortcode( 'google-image-map', array( $this , 'display_map' ) );
-        
-        if( !is_admin() ) {
-            add_action( 'wp_footer', array( $this , 'add_gmaps_tag' ), 100 );
-        }
     }
     
     /* 
@@ -29,14 +30,31 @@ class GIM_Shortcode {
     /* 
      *  Display map
      */
-    public function display_map() {
-        $map_uri = GIM_UPLOADS_URI . '/lomnickastezka'; // add as parameter for shortcode
+    public function display_map( $atts ) {
+        $maps = $this->gim_map_dirs;
+        $default_map = "";
+        if(is_array($maps) && !empty($maps)) {
+            $default_map = $maps[0];
+        }
+        $atts = shortcode_atts(
+		array(
+			'map' => $default_map,
+		), $atts, 'google-image-map' );
+        
+        add_action( 'wp_footer', array( $this , 'add_gmaps_tag' ), 100 );
+        
+        $map_uri = GIM_UPLOADS_URI . '/'. $atts["map"];
         $options = $this->gim_options;
         $developer_mode = $options['developer_mode'] ? true : false;
         $marker_redirect = $options['markers_onclick_redirect'] ? true : false;
         
         $markers = $options["markers"];
         foreach($markers as $k => $marker) {
+            if($marker["map"] != $atts["map"]) {
+                unset($markers[$k]);
+                continue;
+            }
+            
             $image_link = $markers[$k]["img_link"];
             $image_link = explode(".", $image_link, 2);
             $image_link[0] .= "-" . GIM_IMAGE_WIDTH . "x" . GIM_IMAGE_HEIGHT . ".";
@@ -44,7 +62,7 @@ class GIM_Shortcode {
         }
         
         wp_enqueue_script( 'gim-shortcode', GIM_PLUGIN_URI . '/js/shortcode.js', array( 'jquery' ), GIM_PLUGIN_VERSION, false );
-        wp_localize_script( 'gim-shortcode', 'gimSettings', array(
+        wp_localize_script( 'gim-shortcode', 'gimSettingsFront', array(
 			'upload_uri' => $map_uri,
             'tile_size' => 256,
             'markers' => $markers,
@@ -58,11 +76,10 @@ class GIM_Shortcode {
     
     function add_gmaps_tag() {
         $options = $this->gim_options;
-        if( !empty($options) ) {
+        if( !empty($options["google_key"]) ) {
             echo '<script src="https://maps.googleapis.com/maps/api/js?key='. $options["google_key"] .'&callback=initMap"
     async defer></script>';
         }
-    }
-    
+    }  
 }
 

@@ -1,13 +1,13 @@
 // Based on http://stackoverflow.com/questions/10898279/google-maps-v3-imagemaptype-prevent-wrapping from Tina CG Hoehr
-var uploadUri = gimSettings.upload_uri;
-var mapName = gimSettings.map_name;
-var icons = gimSettings.markers;
-var developerMode = gimSettings.developer_mode;
-var marker_redirect = gimSettings.marker_redirect;
+var uploadUri = gimSettingsFront.upload_uri;
+var mapName = gimSettingsFront.map_name;
+var icons = gimSettingsFront.markers;
+var developerMode = gimSettingsFront.developer_mode;
+var marker_redirect = gimSettingsFront.marker_redirect;
 
 var divHeight = document.getElementById("map").clientHeight;
 
-var TILE_SIZE = gimSettings.tile_size;
+var TILE_SIZE = gimSettingsFront.tile_size;
 
 var map;
 var allowedBounds;

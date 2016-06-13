@@ -30,6 +30,9 @@ define( 'GIM_PLUGIN_DIR', trailingslashit( dirname(__FILE__) ) );
 define( 'GIM_PLUGIN_URI', plugins_url('', __FILE__) );
 define( 'GIM_PLUGIN_VERSION', 0.1 );
 define( 'GIM_UPLOADS_URI', content_url('uploads') . '/google-map-tiles' );
+define( 'GIM_UPLOADS_DIR', WP_CONTENT_DIR . '/uploads/google-map-tiles' );
+
+define( 'GIM_OPTIONS_PAGE', 'gim_options');
 
 define( 'GIM_IMAGE_WIDTH', 15 );
 define( 'GIM_IMAGE_HEIGHT', 15 );
@@ -50,10 +53,10 @@ class Google_Image_Map {
 
 		self::$_this = $this;
         
-        require_once( GIM_PLUGIN_DIR . 'includes/settings.php' );
         require_once( GIM_PLUGIN_DIR . 'includes/shortcode.php' );
-        $this->settings = new GIM_Settings();
+        require_once( GIM_PLUGIN_DIR . 'includes/settings.php' );
         $this->shortcode = new GIM_Shortcode();
+        $this->settings = new GIM_Settings();
     
         add_action( 'admin_init', array( $this, 'admin_init' ) );
         
@@ -74,6 +77,7 @@ class Google_Image_Map {
     
     function admin_init() {
         add_image_size( 'google-map-icon', GIM_IMAGE_WIDTH, GIM_IMAGE_HEIGHT, true );
+        add_filter( 'upload_dir', array( $this, 'gim_upload_directory' ) );
     }
     
     /**
@@ -90,20 +94,20 @@ class Google_Image_Map {
         // create db, flush routes, etc.
 	}
 
-    
-    
-    /**
-	 * Extracts attributes from the shortcode and pass them to display_widget function.
-	 */
-	function display_shortcode( $atts ) {
-		$atts = shortcode_atts( array(
-			'col_number'       => '',
-			'counts_num'       => 0,
-			'network_names'    => false,
-		), $atts );
+    function gim_upload_directory( $param ){  // fix this
+        if(strpos( $_SERVER['HTTP_REFERER'], GIM_OPTIONS_PAGE ) !== false) {
+            $param['path'] = GIM_UPLOADS_DIR;
+            $param['url'] = GIM_UPLOADS_URI;
 
-		return $this->display_widget( 'shortcode', $atts );
-	}
+            error_log("path={$param['path']}");  
+            error_log("url={$param['url']}");
+            error_log("subdir={$param['subdir']}");
+            error_log("basedir={$param['basedir']}");
+            error_log("baseurl={$param['baseurl']}");
+            error_log("error={$param['error']}"); 
+        }
+        return $param;
+    }
 }
 
 new Google_Image_Map();

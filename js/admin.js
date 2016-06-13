@@ -22,6 +22,34 @@
             }
         });
         
+        var files;
+        $('#mapzip').on('change', prepareUpload);
+        function prepareUpload(event) {
+            files = event.target.files;
+        }
+        
+        $( '#submit_upload_map_tiles' ).click( function() {
+            var data = new FormData();
+            $.each(files, function(key, value) {
+                data.append(key, value);
+            });
+            data.append('action', 'gim_upload_file');
+            data.append('gim_nonce', gimSettings.gim_nonce);
+            
+            $.ajax({
+                type: 'POST',
+                url: gimSettings.ajaxurl,
+                cache: false,
+                processData: false,
+                contentType: false,
+                data: data,
+                success: function( data ){
+                    console.log(data);
+                }
+            });
+            return false;
+        });
+        
         /*
          * Display proper inputs by checkboxes
          */
@@ -143,28 +171,6 @@
             return false;
         }
         $('.markers_table button[name=remove]').bind("click", remove_marker); // Bind click event to remove marker
-        
-        /*
-         * Image file upload
-         
-        $('button[name=upload_image]').live('click',function() {
-            imgID = jQuery(this).prev('img.image');
-            inputID = jQuery(this).prev('input[name=image_link]');
-            tb_show('', 'media-upload.php?type=image&amp;TB_iframe=true');
-
-            return false;
-        });
-
-        window.send_to_editor = function(html) {
-            var imgurl = $(html).attr('src');
-            if( imgurl != null ) {
-                inputID.val(imgurl);
-                imgID.attr('src',imgurl);
-            } else {
-                alert('Error with inserting into settings.');
-            }
-            tb_remove();
-        }*/
         
         /* 
          *  Marker image upload

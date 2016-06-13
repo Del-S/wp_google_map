@@ -1,11 +1,11 @@
 <?php
-// TODO: complete map tiles upload
-// - Marker pick for each map tiles
-// - Display map tiles names (in upload dir)
+// TODO: fix admin google tag loading
+// - fix plugin upload dir change (it works but for all uploads and not only for plugin uploads)
 class GIM_Settings {
     var $gim_options;
     var $gim_settings_map;
     var $gim_marker_map;
+    var $gim_map_dirs;
     
     function __construct() {
         add_action( 'admin_menu', array( $this, 'admin_menu' ) );
@@ -17,17 +17,25 @@ class GIM_Settings {
         $this->gim_settings_map = $this->get_settings_map();
         $this->gim_marker_map = $this->get_marker_map();
         
+        foreach(glob(GIM_UPLOADS_DIR . '/*', GLOB_ONLYDIR) as $dir) {
+            $dirname[] = basename($dir);
+        }
+        $this->gim_map_dirs = $dirname;
+
+        add_action( 'wp_ajax_gim_upload_file', array( $this, 'ajax_upload_file' ) );
 		add_action( 'wp_ajax_gim_save_settings', array( $this, 'ajax_save_settings' ) );
         add_action( 'wp_ajax_gim_save_new_marker', array( $this, 'ajax_save_new_marker' ) );
         add_action( 'wp_ajax_gim_update_marker', array( $this, 'ajax_update_marker' ) );
         add_action( 'wp_ajax_gim_remove_marker', array( $this, 'ajax_remove_marker' ) );
+        
+        add_action( 'wp_footer', array( $this , 'add_gmaps_tag' ), 101 );  // fix this
     }
     
     /* 
      *  Menu changes
      */    
     function admin_menu() {
-		$menu_page = add_submenu_page( 'options-general.php', __( 'Google Image Map', 'GIM' ), __( 'Google Image Map', 'GIM' ), 'manage_options', 'gim_options', array( $this, 'options_page' ) );
+		$menu_page = add_submenu_page( 'options-general.php', __( 'Google Image Map', 'GIM' ), __( 'Google Image Map', 'GIM' ), 'manage_options', GIM_OPTIONS_PAGE, array( $this, 'options_page' ) );
 		add_action( "admin_print_scripts-{$menu_page}", array( $this, 'load_admin_js' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'load_admin_css' ) );
 	}
@@ -43,13 +51,19 @@ class GIM_Settings {
         wp_enqueue_script('media-upload');
         wp_enqueue_script('thickbox');
         
-		wp_enqueue_script( 'gim-admin', GIM_PLUGIN_URI . '/js/admin.js', array( 'jquery' ), GIM_PLUGIN_VERSION, true );
+		wp_enqueue_script( 'gim-admin', GIM_PLUGIN_URI . '/js/admin.js', array( 'jquery' ), GIM_PLUGIN_VERSION, false );
 		//wp_enqueue_script( 'jquery-ui-sortable', array( 'jquery' ), GIM_PLUGIN_VERSION, true );
 
 		wp_localize_script( 'gim-admin', 'gimSettings', array(
 			'gim_nonce' => wp_create_nonce( 'gim_nonce' ),
 			'ajaxurl'   => admin_url( 'admin-ajax.php', $this->protocol ),
 		) );
+        
+        /*$options = $this->gim_options;
+        if( !empty($options["google_key"]) ) {
+            echo '<script src="https://maps.googleapis.com/maps/api/js?key='. $options["google_key"] .'&callback=initMap"
+    async defer></script>';
+        }*/
 	}
     
     function load_admin_css() {
@@ -74,6 +88,7 @@ class GIM_Settings {
         $settings_map['markers_link_only'] = 'checkbox';
         $settings_map['markers_onclick_redirect'] = 'checkbox';
         $settings_map['developer_mode'] = 'checkbox';
+        $settings_map['map_preview'] = 'select';
         return $settings_map;
     }
     
@@ -81,42 +96,83 @@ class GIM_Settings {
         $marker_map = array();
         $marker_map['name'] = 'input';
         $marker_map['link'] = 'input';
+        $marker_map['map'] = 'select';
         $marker_map['lat'] = 'input';
         $marker_map['long'] = 'input';
         $marker_map['img_link'] = 'input';
         return $marker_map;
     }
     
+    function ajax_upload_file( $options = array() ) {
+		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
+            $files = $_FILES;
+            $message = $this->upload_file( $files );
+        }
+        die( $message );
+	}
+          
     function ajax_save_settings( $options = array() ) {
-		wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' );
-		$options = $_POST['options'];
-        $marker_ids = $_POST['marker_ids'];
-		$message = $this->change_options( $options, $marker_ids );
+		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
+            $options = $_POST['options'];
+            $marker_ids = $_POST['marker_ids'];
+            $message = $this->change_options( $options, $marker_ids );
+        }
         die( $message );
 	}
     
     function ajax_save_new_marker( $options = array() ) {
-		wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' );
-		$options = $_POST['options'];
-        $markers_count = $_POST['markers_count'];
-		$message = $this->add_marker( $options, $markers_count );
+		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
+            $options = $_POST['options'];
+            $markers_count = $_POST['markers_count'];
+            $message = $this->add_marker( $options, $markers_count );
+        }
         die( $message );
 	}
         
     function ajax_update_marker( $options = array() ) {
-		wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' );
-		$options = $_POST['options'];
-        $id = $_POST['marker_id'];
-		$message = $this->update_marker( $id, $options );
+		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
+            $options = $_POST['options'];
+            $id = $_POST['marker_id'];
+            $message = $this->update_marker( $id, $options );
+        }
         die( $message );
 	}
     
     function ajax_remove_marker( $options = array() ) {
-		wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' );
-		$id = $_POST['marker_id'];
-		$message = $this->remove_marker( $id );
+		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
+            $id = $_POST['marker_id'];
+            $message = $this->remove_marker( $id );
+        }
         die( $message );
 	}
+    
+    function upload_file( $files ) { 
+        WP_Filesystem();
+        if ( ! function_exists( 'wp_handle_upload' ) ) {
+            require_once( ABSPATH . 'wp-admin/includes/file.php' );
+        }   
+        
+        $err = array();
+        $overrides = array( 'test_form' => false );
+        foreach($files as $file) {
+            $movefile = wp_handle_upload( $file, $overrides );
+            
+            if ( $movefile && isset( $movefile['error'] ) ) {
+                $err[] = $movefile['error'];
+            } else {
+                $unzipfile = unzip_file($movefile["file"], GIM_UPLOADS_DIR);
+                if ( !$unzipfile ) {
+                    $err[] = 'There was an error unzipping the file.';   // todo parametrize this     
+                }
+            }
+        }
+        
+        if(empty($err)) {
+            return 'Upload complete.';  // todo parametrize this
+        } else {
+            return var_dump($err); // todo parametrize this
+        }
+    }
     
     function change_options( $options, $marker_ids ) {
         $gim_settings_map = $this->gim_settings_map;
@@ -135,6 +191,12 @@ class GIM_Settings {
                     case 'input':
                         $options_temp[ $name ] = isset( $output[ $name ] )
                                     ? sanitize_text_field( $output[ $name ] )
+                                    : '';
+                    break;
+                        
+                    case 'select':
+                        $options_temp[ $name ] = isset( $output[ $name ] )
+                                    ? $output[ $name ]
                                     : '';
                     break;
 
@@ -163,6 +225,12 @@ class GIM_Settings {
                         case 'input':
                             $current_markers[$k][ $name ] = isset( $options[ $array_name ] )
                                         ? sanitize_text_field( $options[ $array_name ] )
+                                        : '';
+                        break;
+                            
+                        case 'select':
+                            $current_markers[$k][ $name ] = isset( $options[ $array_name ] )
+                                        ? $options[ $array_name ]
                                         : '';
                         break;
                     }
@@ -200,6 +268,12 @@ class GIM_Settings {
                                     ? sanitize_text_field( $output[ $array_name ] )
                                     : '';
                     break;
+
+                    case 'select':
+                        $options_temp["markers"][$m_id][ $name ] = isset( $output[ $array_name ] )
+                                    ? $output[ $array_name ]
+                                    : '';
+                    break;
                 }
             }
         }        
@@ -207,11 +281,13 @@ class GIM_Settings {
     
         $this->update_option($options_temp, true);
         
+        $marker_map = $this->display_maps( $options_temp["markers"][$m_id]['map'], $m_id );
         if ($markers_count % 2 == 0) { $alt = "alternate"; }
         $row = '<tr class="row_'.$m_id.' '.$alt.'">
             <td>Marker #'.$m_id.'</td>
             <td><input type="text" name="marker_name_'.$m_id.'" value="'. $options_temp["markers"][$m_id]['name'] .'" /></td>
             <td><input type="text" name="marker_link_'.$m_id.'" value="'. $options_temp["markers"][$m_id]['link'] .'" placeholder="#" /></td>
+            <td>'. $marker_map .'</td>
             <td><input type="text" name="marker_lat_'.$m_id.'" value="'. $options_temp["markers"][$m_id]['lat'] .'" /></td>
             <td><input type="text" name="marker_long_'.$m_id.'" value="'. $options_temp["markers"][$m_id]['long'] .'" /></td>
             <td>
@@ -265,6 +341,12 @@ class GIM_Settings {
                                     ? sanitize_text_field( $output[ $array_name ] )
                                     : '';
                     break;
+                        
+                    case 'select':
+                        $options["markers"][$id][ $name ] = isset( $output[ $array_name ] )
+                                    ? $output[ $array_name ]
+                                    : '';
+                    break;
                 }
             }            
             $this->update_option($options, true);
@@ -290,7 +372,7 @@ class GIM_Settings {
     /* 
      *  Display options page
      */
-    function options_page() {
+    function options_page() {        
         $options = $this->gim_options;
         $map_google_key = $options['google_key'] ? $options['google_key'] : "";
         
@@ -302,20 +384,18 @@ class GIM_Settings {
         $map_markers_link_only = $options['markers_link_only'] ? "checked" : "";
         $map_markers_onclick_redirect = $options['markers_onclick_redirect'] ? "checked" : "";
         
-        $developer_mode = $options['developer_mode'] ? "checked" : "";
+        $gim_map_preview_select = $this->display_maps( $options['map_preview'], -1 );
+        $gim_map_preview = do_shortcode('[google-image-map map="'. $options['map_preview'] .'"]');
         
+        $developer_mode = $options['developer_mode'] ? "checked" : "";
         
         $page = '<div id="gim_wrapper">
             <h2>Google Image Map settings</h2>
             
-            <div class="image_link" style="float: right">
-                <form method="post" enctype="multipart/form-data" id="upload_map_tiles" class="wp-upload-form" action="#">
-                    <input type="file" accept="application/zip" id="mapzip" name="mapzip">
-                    <button id="submit_upload_map_tiles" class="button" disabled="">'. __('Upload map tiles','GIM') .'</button>	
-                </form>
-                <img src="'. $map_image_link .'" class="image" alt="Image Map" title="Image Map" width="400" height="300"/>
-                <input type="hidden" class="hidden" name="image_link" value="'. $map_image_link .'"  />
-            </div>
+            <form method="post" enctype="multipart/form-data" id="upload_map_tiles" class="wp-upload-form" action="#">
+                <input type="file" accept="application/zip" id="mapzip" name="mapzip">
+                <button id="submit_upload_map_tiles" class="button" disabled="">'. __('Upload map tiles','GIM') .'</button>	
+            </form>
             
             <form method="post" action="#" id="gim_options">
                 <div class="map_settings">
@@ -344,6 +424,12 @@ class GIM_Settings {
                         <input type="checkbox" name="markers_onclick_redirect" '. $map_markers_onclick_redirect .'  />
                     </div>
                 </div>
+                
+                <div class="map_preview">
+                    '. $gim_map_preview_select .'
+                    '. $gim_map_preview .'
+                </div>
+                
                 <div class="map_markers">
                 <table class="markers_table wp-list-table widefat">
                     <thead>
@@ -351,6 +437,7 @@ class GIM_Settings {
                         <th>'. __('#ID','GIM') . '</th>
                         <th>'. __('Name','GIM') .'</th>
                         <th>'. __('Link','GIM') .'</th>
+                        <th>'. __('Map','GIM') .'</th>
                         <th>'. __('Latitude','GIM') .'</th>
                         <th>'. __('Longtitude','GIM') .'</th>
                         <th>'. __('Image','GIM') .'</th>
@@ -362,12 +449,15 @@ class GIM_Settings {
                     $markers = $options['markers'] ? $options['markers'] : array();
                     $alt_counter = 0;
                     foreach($markers as $id => $marker) {
+                        $marker_map = $this->display_maps( $marker['map'], $id );
+                        
                         $alt = "";
                         if(!(bool)($alt_counter & 1)) { $alt = 'alternate'; }
                         $page .= '<tr class="row_'.$id.' '.$alt.'">
                                 <td>Marker #'.$id.'</td>
                                 <td><input type="text" name="marker_name_'.$id.'" value="'. $marker['name'] .'" /></td>
                                 <td><input type="text" name="marker_link_'.$id.'" value="'. $marker['link'] .'" placeholder="#" /></td>
+                                <td>'. $marker_map .'</td>
                                 <td><input type="text" name="marker_lat_'.$id.'" value="'. $marker['lat'] .'" /></td>
                                 <td><input type="text" name="marker_long_'.$id.'" value="'. $marker['long'] .'" /></td>
                                 <td>
@@ -381,13 +471,16 @@ class GIM_Settings {
                                 </td>
                               </tr>';
                         $alt_counter++;
-                    }        
+                    }   
+        
+                    $new_marker_map = $this->display_maps( "", "new" );
                     $page .= '</tbody>
                     <tfoot>
                     <tr class="new">
                         <td>'. __('Add marker','GIM') .'</td>
                         <td><input type="text" name="new_name"/></td>
                         <td><input type="text" name="new_link" value="" placeholder="#" /></td>
+                        <td>'. $new_marker_map .'</td>
                         <td><input type="text" name="new_lat" value="" /></td>
                         <td><input type="text" name="new_long" value="" /></td>
                         <td>
@@ -412,4 +505,32 @@ class GIM_Settings {
         
         echo $page;
     } 
+    
+    function display_maps( $current_map, $current_marker ) {
+        $map_dirs = $this->gim_map_dirs;
+        if(is_array($map_dirs) && !empty($map_dirs)) {
+            $name = "map_preview";
+            if($current_marker == "new") {
+                $name = "new_map";
+            } else if($current_marker >= 0) {
+                $name = "marker_map_" . $current_marker;
+            }
+            
+            $selects = '<select name="'. $name .'" class="map_dir">';
+            foreach($map_dirs as $k => $dir) {
+                $current = ($dir == $current_map) ? " selected" : "";
+                $selects .= '<option value="'. $dir .'"'. $current .'>'. $dir .'</value>';
+            }
+            $selects .= '</select>';
+        }
+        return $selects;
+    }
+    
+    function add_gmaps_tag() {
+        $options = $this->gim_options;
+        if( !empty($options["google_key"]) ) {
+            echo '<script src="https://maps.googleapis.com/maps/api/js?key='. $options["google_key"] .'&callback=initMap"
+    async defer></script>';
+        }
+    }    
 }
