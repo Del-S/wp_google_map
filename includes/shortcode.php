@@ -45,20 +45,43 @@ class GIM_Shortcode {
         
         $map_uri = GIM_UPLOADS_URI . '/'. $atts["map"];
         $options = $this->gim_options;
-        $developer_mode = $options['developer_mode'] ? true : false;
+        if(is_admin()) {
+            $developer_mode = $options['developer_mode'] ? true : false;
+        }
         $marker_redirect = $options['markers_onclick_redirect'] ? true : false;
         
+        if (version_compare(phpversion(), '5.3.0', '>=')) {
+            $hostname = gethostname();
+        } else {
+            $hostname = php_uname('n');
+        }
+        
+        $home_url = get_home_url();
         $markers = $options["markers"];
-        foreach($markers as $k => $marker) {
-            if($marker["map"] != $atts["map"]) {
-                unset($markers[$k]);
-                continue;
+        if( is_array($markers) && !empty($markers) ) {
+            foreach($markers as $k => $marker) {
+                if($marker["map"] != $atts["map"]) {
+                    unset($markers[$k]);
+                    continue;
+                }
+
+                $image_link = $markers[$k]["img_link"];
+                $image_link = explode(".", $image_link);
+                $key_image = count($image_link) - 2;
+                $image_link[$key_image] .= "-" . GIM_IMAGE_WIDTH . "x" . GIM_IMAGE_HEIGHT;
+                $markers[$k]["img_link"] = implode('.', $image_link);
+
+                $url = $markers[$k]["link"];
+                if(!empty(trim($url))) {
+                    if( (strpos( $url, $home_url ) === false) && ( (strpos( $url, $hostname ) === false) && !filter_var($url, FILTER_VALIDATE_URL) )) {
+                        $markers[$k]["link"] = $home_url . $url;
+                    }
+                } else {
+                    $markers[$k]["link"] = trim($url);
+                }
             }
-            
-            $image_link = $markers[$k]["img_link"];
-            $image_link = explode(".", $image_link, 2);
-            $image_link[0] .= "-" . GIM_IMAGE_WIDTH . "x" . GIM_IMAGE_HEIGHT . ".";
-            $markers[$k]["img_link"] = implode($image_link);
+        } else {
+            $markers = array();
         }
         
         wp_enqueue_script( 'gim-shortcode', GIM_PLUGIN_URI . '/js/shortcode.js', array( 'jquery' ), GIM_PLUGIN_VERSION, false );
@@ -71,7 +94,7 @@ class GIM_Shortcode {
             'marker_redirect' => $marker_redirect
 		) );
         
-		return '<div id="map" style="width: 500px; height: 500px;"></div>';
+		return '<div id="map" style="width: 800px; height: 450px;"></div>';
 	}
     
     function add_gmaps_tag() {

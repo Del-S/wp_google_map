@@ -6,6 +6,7 @@ var developerMode = gimSettingsFront.developer_mode;
 var marker_redirect = gimSettingsFront.marker_redirect;
 
 var divHeight = document.getElementById("map").clientHeight;
+var divWidth = document.getElementById("map").clientWidth;
 
 var TILE_SIZE = gimSettingsFront.tile_size;
 
@@ -50,6 +51,11 @@ function initMap() {
     google.maps.event.addListener(map, 'tilesloaded', function() {
         updateEdge();
     });
+    
+    google.maps.event.addListener(map, 'resize', function() {
+        updateEdge();
+        boxIn();
+    });
 
     google.maps.event.addListener(map, 'zoom_changed', function() {
         updateEdge();
@@ -74,6 +80,18 @@ function initMap() {
             var ico = icons[k];
             addIcon(ico['lat'],ico['long'],ico['img_link'], ico["link"]); 
         }
+    }
+}
+
+// Resizing map for responsivity
+window.addEventListener("resize", checkDivSize);
+function checkDivSize() {
+    var divHeightCheck = document.getElementById("map").clientHeight;
+    var divWidthCheck = document.getElementById("map").clientWidth;
+    if( divHeight !== divHeightCheck || divWidth !== divWidthCheck ) {
+        divHeight = divHeightCheck;
+        divWidth = divWidthCheck;
+        google.maps.event.trigger(map, "resize");
     }
 }
 
@@ -136,10 +154,11 @@ function addIcon(lat, lng, url, link) {
     var marker = new google.maps.Marker({
         position: new google.maps.LatLng(lat, lng),
         icon: url,
+        optimized: false
     });
-    if(marker_redirect) {
+    if(marker_redirect && link) {
         marker.addListener('click', function() {
-            console.log(link);
+            window.location=link;
         });
     }
     marker.setMap(map);
@@ -228,3 +247,33 @@ function getNormalizedCoord(coord, zoom) {
 
     return {x: x, y: y};
 }
+
+(function($){
+	$( document ).ready( function() {  
+
+        $( '#map_preview_dir' ).change(function() {
+           var map = $(this).val();
+           $.ajax({
+                type: 'POST',
+                url: gimSettings.ajaxurl,
+                data: {
+                    action : 'gim_change_preview',
+                    map : map,
+                    gim_nonce : gimSettings.gim_nonce
+                },
+                success: function( data ){
+                    //uploadUri = data;
+                    if(data) {
+                        data = JSON.parse(data);
+                        uploadUri = data["map_uri"];
+                        icons = data["markers"];
+                        console.log(data);
+                        initMap();
+                    }
+                }
+            });
+            return false;
+       });
+
+    });    
+})(jQuery)

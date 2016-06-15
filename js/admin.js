@@ -1,7 +1,7 @@
 (function($){
 	$( document ).ready( function() {      
         /*
-         * Google map tiles upload (zip only)
+         * Enable upload - google map tiles upload (zip only)
          */
         $('#mapzip').change(function() {
             if($(this).val().trim()) {
@@ -11,6 +11,18 @@
             }
         });
         
+        /*
+         * Register files to upload
+         */
+        var files;
+        $('#mapzip').on('change', prepareUpload);
+        function prepareUpload(event) {
+            files = event.target.files;
+        }
+        
+        /*
+         * Upload files to the server
+         */
         $('#submit_upload_map_tiles').click(function(e) {
             e.preventDefault();
             $(this).next('.error').remove();
@@ -18,17 +30,12 @@
             if ($.inArray($('#mapzip').val().split('.').pop().toLowerCase(), fileExtension) == -1) {
                 $(this).parent().append('<label for="mapzip" class="error">Err</label>'); // localize this
             } else {
-                
+                upload_files();
+                $(this).prop( "disabled", true );
             }
         });
         
-        var files;
-        $('#mapzip').on('change', prepareUpload);
-        function prepareUpload(event) {
-            files = event.target.files;
-        }
-        
-        $( '#submit_upload_map_tiles' ).click( function() {
+        function upload_files() {
             var data = new FormData();
             $.each(files, function(key, value) {
                 data.append(key, value);
@@ -45,10 +52,12 @@
                 data: data,
                 success: function( data ){
                     console.log(data);
+                    files = "";
+                    $('#mapzip').val('');
                 }
             });
             return false;
-        });
+        };
         
         /*
          * Display proper inputs by checkboxes
@@ -184,7 +193,7 @@
         });
 
         window.send_to_editor = function(html) {
-            var imgurl = $(html).attr('src');
+            var imgurl = $('img', html).attr('src');
             if( imgurl != null && imgurl != "" ) {
                 var input = '';
                 if(rowID == "new") {

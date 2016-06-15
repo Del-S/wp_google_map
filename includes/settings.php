@@ -1,6 +1,4 @@
 <?php
-// TODO: fix admin google tag loading
-// - fix plugin upload dir change (it works but for all uploads and not only for plugin uploads)
 class GIM_Settings {
     var $gim_options;
     var $gim_settings_map;
@@ -22,13 +20,12 @@ class GIM_Settings {
         }
         $this->gim_map_dirs = $dirname;
 
+        add_action( 'wp_ajax_gim_change_preview', array( $this, 'ajax_change_preview' ) );
         add_action( 'wp_ajax_gim_upload_file', array( $this, 'ajax_upload_file' ) );
 		add_action( 'wp_ajax_gim_save_settings', array( $this, 'ajax_save_settings' ) );
         add_action( 'wp_ajax_gim_save_new_marker', array( $this, 'ajax_save_new_marker' ) );
         add_action( 'wp_ajax_gim_update_marker', array( $this, 'ajax_update_marker' ) );
         add_action( 'wp_ajax_gim_remove_marker', array( $this, 'ajax_remove_marker' ) );
-        
-        add_action( 'wp_footer', array( $this , 'add_gmaps_tag' ), 101 );  // fix this
     }
     
     /* 
@@ -47,7 +44,6 @@ class GIM_Settings {
 	}
     
     function load_admin_js() {
-        // Load upload an thickbox script
         wp_enqueue_script('media-upload');
         wp_enqueue_script('thickbox');
         
@@ -59,21 +55,13 @@ class GIM_Settings {
 			'ajaxurl'   => admin_url( 'admin-ajax.php', $this->protocol ),
 		) );
         
-        /*$options = $this->gim_options;
-        if( !empty($options["google_key"]) ) {
-            echo '<script src="https://maps.googleapis.com/maps/api/js?key='. $options["google_key"] .'&callback=initMap"
-    async defer></script>';
-        }*/
+        add_action( 'admin_footer', array( $this , 'add_gmaps_tag' ), 101 );
 	}
     
     function load_admin_css() {
-        // Load thickbox CSS
         wp_enqueue_style('thickbox');
 	}
     
-    /* 
-     *  Working with options
-     */
     public static function get_options_array() {
 		return get_option( 'gim_options' ) ? get_option( 'gim_options' ) : array();
 	}
@@ -88,7 +76,7 @@ class GIM_Settings {
         $settings_map['markers_link_only'] = 'checkbox';
         $settings_map['markers_onclick_redirect'] = 'checkbox';
         $settings_map['developer_mode'] = 'checkbox';
-        $settings_map['map_preview'] = 'select';
+        $settings_map['map_preview_dir'] = 'select';
         return $settings_map;
     }
     
@@ -103,7 +91,14 @@ class GIM_Settings {
         return $marker_map;
     }
     
-    function ajax_upload_file( $options = array() ) {
+    function ajax_change_preview() {
+		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
+            $message = $this->change_preview( $_POST['map'] );
+        }
+        die( $message );
+	}
+        
+    function ajax_upload_file() {
 		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
             $files = $_FILES;
             $message = $this->upload_file( $files );
@@ -111,7 +106,7 @@ class GIM_Settings {
         die( $message );
 	}
           
-    function ajax_save_settings( $options = array() ) {
+    function ajax_save_settings() {
 		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
             $options = $_POST['options'];
             $marker_ids = $_POST['marker_ids'];
@@ -120,7 +115,7 @@ class GIM_Settings {
         die( $message );
 	}
     
-    function ajax_save_new_marker( $options = array() ) {
+    function ajax_save_new_marker() {
 		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
             $options = $_POST['options'];
             $markers_count = $_POST['markers_count'];
@@ -129,7 +124,7 @@ class GIM_Settings {
         die( $message );
 	}
         
-    function ajax_update_marker( $options = array() ) {
+    function ajax_update_marker() {
 		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
             $options = $_POST['options'];
             $id = $_POST['marker_id'];
@@ -138,13 +133,51 @@ class GIM_Settings {
         die( $message );
 	}
     
-    function ajax_remove_marker( $options = array() ) {
+    function ajax_remove_marker() {
 		if( wp_verify_nonce( $_POST['gim_nonce'], 'gim_nonce' ) ) {
             $id = $_POST['marker_id'];
             $message = $this->remove_marker( $id );
         }
         die( $message );
 	}
+    
+    function change_preview( $map ) {
+        $map_uri = GIM_UPLOADS_URI . '/'. $map;
+        $options = $this->gim_options;
+        
+        if (version_compare(phpversion(), '5.3.0', '>=')) {
+            $hostname = gethostname();
+        } else {
+            $hostname = php_uname('n');
+        }
+        
+        $home_url = get_home_url();
+        $markers = $options["markers"];
+        foreach($markers as $k => $marker) {
+            if($marker["map"] != $map) {
+                unset($markers[$k]);
+                continue;
+            }
+            
+            $image_link = $markers[$k]["img_link"];
+            $image_link = explode(".", $image_link);
+            $key_image = count($image_link) - 2;
+            $image_link[$key_image] .= "-" . GIM_IMAGE_WIDTH . "x" . GIM_IMAGE_HEIGHT;
+            $markers[$k]["img_link"] = implode('.', $image_link);
+            
+            $url = $markers[$k]["link"];
+            if(!empty(trim($url))) {
+                if( (strpos( $url, $home_url ) === false) && ( (strpos( $url, $hostname ) === false) && !filter_var($url, FILTER_VALIDATE_URL) )) {
+                    $markers[$k]["link"] = $home_url . $url;
+                }
+            } else {
+                $markers[$k]["link"] = trim($url);
+            }
+        }
+        
+        $return = array("map_uri" => $map_uri, "markers" => $markers);
+        return json_encode($return);
+    }
     
     function upload_file( $files ) { 
         WP_Filesystem();
@@ -384,8 +417,8 @@ class GIM_Settings {
         $map_markers_link_only = $options['markers_link_only'] ? "checked" : "";
         $map_markers_onclick_redirect = $options['markers_onclick_redirect'] ? "checked" : "";
         
-        $gim_map_preview_select = $this->display_maps( $options['map_preview'], -1 );
-        $gim_map_preview = do_shortcode('[google-image-map map="'. $options['map_preview'] .'"]');
+        $gim_map_preview_select = $this->display_maps( $options['map_preview_dir'], -1 );
+        $gim_map_preview = do_shortcode('[google-image-map map="'. $options['map_preview_dir'] .'"]');
         
         $developer_mode = $options['developer_mode'] ? "checked" : "";
         
@@ -398,7 +431,7 @@ class GIM_Settings {
             </form>
             
             <form method="post" action="#" id="gim_options">
-                <div class="map_settings">
+                <div class="map_settings" style="float: left;">
                     <div class="map_google_key">
                         <label for="google_key">'. __('Google API key','GIM') .'</label>
                         <input type="text" name="google_key" value="'. $map_google_key .'"  />
@@ -425,8 +458,10 @@ class GIM_Settings {
                     </div>
                 </div>
                 
-                <div class="map_preview">
+                <div class="map_preview" style="float: right;">
                     '. $gim_map_preview_select .'
+                    <input type="checkbox" name="developer_mode" '. $developer_mode .'  />
+                    <label for="developer_mode">'. __('Developer mode','GIM') .'</label>
                     '. $gim_map_preview .'
                 </div>
                 
@@ -494,11 +529,6 @@ class GIM_Settings {
                 </table>
             </div>
             
-            <div class="map_developer_mode">
-                <label for="developer_mode">'. __('Developer mode','GIM') .'</label>
-                <input type="checkbox" name="developer_mode" '. $developer_mode .'  />
-            </div>
-            
             <input type="submit" name="save_gim_options" class="save_gim_options button button-primary button-large" value="'. __('Save settings','GIM') .'" />
             </form>
         </div>';
@@ -509,14 +539,14 @@ class GIM_Settings {
     function display_maps( $current_map, $current_marker ) {
         $map_dirs = $this->gim_map_dirs;
         if(is_array($map_dirs) && !empty($map_dirs)) {
-            $name = "map_preview";
-            if($current_marker == "new") {
+            $name = "map_preview_dir";
+            if($current_marker === "new") {
                 $name = "new_map";
             } else if($current_marker >= 0) {
                 $name = "marker_map_" . $current_marker;
             }
             
-            $selects = '<select name="'. $name .'" class="map_dir">';
+            $selects .= '<select name="'. $name .'" id="'. $name .'">';
             foreach($map_dirs as $k => $dir) {
                 $current = ($dir == $current_map) ? " selected" : "";
                 $selects .= '<option value="'. $dir .'"'. $current .'>'. $dir .'</value>';

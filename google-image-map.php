@@ -4,7 +4,7 @@ Plugin Name: Google Image Map
 Plugin URI: #
 Description: Using Google API to display image map with markers.
 Author: David Sucharda
-Version: 0.1
+Version: 0.7
 Author URI: http://idefixx.cz/
 
 This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'GIM_PLUGIN_DIR', trailingslashit( dirname(__FILE__) ) );
 define( 'GIM_PLUGIN_URI', plugins_url('', __FILE__) );
-define( 'GIM_PLUGIN_VERSION', 0.1 );
+define( 'GIM_PLUGIN_VERSION', 0.7 );
 define( 'GIM_UPLOADS_URI', content_url('uploads') . '/google-map-tiles' );
 define( 'GIM_UPLOADS_DIR', WP_CONTENT_DIR . '/uploads/google-map-tiles' );
 
@@ -94,7 +94,7 @@ class Google_Image_Map {
         // create db, flush routes, etc.
 	}
 
-    function gim_upload_directory( $param ){  // fix this
+    function gim_upload_directory( $param ){     
         if(strpos( $_SERVER['HTTP_REFERER'], GIM_OPTIONS_PAGE ) !== false) {
             $param['path'] = GIM_UPLOADS_DIR;
             $param['url'] = GIM_UPLOADS_URI;
