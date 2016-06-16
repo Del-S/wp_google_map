@@ -25,13 +25,13 @@
          */
         $('#submit_upload_map_tiles').click(function(e) {
             e.preventDefault();
+            $(this).prop( "disabled", true );
             $(this).next('.error').remove();
             var fileExtension = ['zip'];
             if ($.inArray($('#mapzip').val().split('.').pop().toLowerCase(), fileExtension) == -1) {
                 $(this).parent().append('<label for="mapzip" class="error">Err</label>'); // localize this
             } else {
                 upload_files();
-                $(this).prop( "disabled", true );
             }
         });
         
@@ -79,6 +79,8 @@
          * Save complete form via ajax
          */
         $( '.save_gim_options' ).click( function() {
+            var el = $(this);
+            el.prop( "disabled", true );
             var form = $( '#gim_options' ).serialize();
             var markers = $('.markers_table input[name^="marker_long_"]');
             
@@ -103,6 +105,9 @@
                 success: function( data ){
                     console.log(data);
                     alert("saved - chnage this to non-modular box with a message");
+                },
+                complete: function() {
+                    location.reload();
                 }
             });
             return false;
@@ -112,6 +117,8 @@
          * Save new marker
          */
         $( 'button[name=save_new_marker]' ).click( function() {
+            var el = $(this);
+            el.prop( "disabled", true );
             var form = $( '#gim_options' ).serialize();
             var markers_count = $('.markers_table tr[class^="row_"]').length;
             $.ajax({
@@ -130,6 +137,9 @@
                     // Rebind events for new buttons
                     $(".markers_table button[name=update]").bind("click", update_marker);
                     $(".markers_table button[name=remove]").bind("click", remove_marker);
+                },
+                complete: function() {
+                    el.prop( "disabled", false );
                 }
             });
             return false;
@@ -139,6 +149,8 @@
          * Update marker
          */
         function update_marker() {
+            var el = $(this);
+            el.prop( "disabled", true );
             var id = $( this ).val();
             var form = $( '#gim_options' ).serialize();
             $.ajax({
@@ -152,6 +164,9 @@
                 },
                 success: function( data ){
                     console.log(data);
+                },
+                complete: function() {
+                    el.prop( "disabled", false );
                 }
             });
             return false;
@@ -162,7 +177,11 @@
          * Remove marker
          */
         function remove_marker() {
-            var id = $( this ).val();
+            var el = $(this);
+            el.prop( "disabled", true );
+            el.prev( "button[name=update]" ).prop( "disabled", true );
+            el.parent().parent().find('button[name=upload_marker_image]').prop( "disabled", true );
+            var id = el.val();
             $.ajax({
                 type: 'POST',
                 url: gimSettings.ajaxurl,
@@ -172,6 +191,7 @@
                     gim_nonce : gimSettings.gim_nonce
                 },
                 success: function( data ){
+                    console.log(data);
                     $('.markers_table tr.row_'+id).fadeOut("slow", function() {
                         $(this).remove();
                     });
